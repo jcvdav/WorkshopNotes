@@ -6,3 +6,6 @@ output: html_document
 ---
 
 
+# Workshops
+
+- `r format(Sys.Date(), '%B %d, %Y')` [R for Scientific computing](./R4ScComp/)
