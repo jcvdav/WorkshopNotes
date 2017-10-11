@@ -1,0 +1,117 @@
+---
+title: "R for scientific computing"
+author: "Juan Carlos Villaseñor-Derbez"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output: html_notebook
+---
+
+
+# Load libraries
+
+```{r}
+suppressPackageStartupMessages({
+  library(tidyverse)
+})
+```
+
+
+# Play with the titanic dataset
+
+## Read the data
+
+```{r}
+train <- read.csv(file = "titanic/data/train.csv", stringsAsFactors = F)
+test <- read.csv(file = "titanic/data/test.csv", stringsAsFactors = F)
+```
+
+## Prepare a training and a testing dataset
+
+```{r}
+survival <- select(train, Survived, PassengerId)
+
+train <- mutate(train, Survived = NULL) %>% 
+  mutate(is.train = 1)
+
+test <- mutate(test, is.train = 0)
+
+allData <- rbind(train, test)
+```
+
+```{r}
+totNA <- function(x){sum(is.na(x))}
+
+naCols <- allData %>%
+  summarize_all(totNA)
+
+naCols
+```
+
+## Obtain titles of the passengers
+
+```{r}
+titles <- character(length = nrow(allData))
+
+for (i in 1:nrow(allData)){
+  temp <- str_split(allData$Name[i], "\\.")[[1]][1]
+  titles[i] <- str_trim(str_split(temp, ",")[[1]][2], "left")
+}
+
+allData %<>%
+  mutate(title = as.factor(titles)) %>% 
+  select(-Name)
+```
+
+```{r}
+group_by(allData, title) %>% 
+  count()
+```
+
+## Fill missing information by Title
+
+### Calculate median age by title
+
+```{r}
+(medAge <- allData %>% 
+  group_by(title) %>% 
+  summarize(medAge = median(Age, na.rm = T)))
+```
+
+mklink "index.html" "index.nb.html"
+
+### Join median anges to the main dataset, and replace `NA` values with median age
+
+```{r}
+allData %<>%
+  left_join(medAge, by = "title") %>% 
+  mutate(Age = ifelse(is.na(Age), medAge, Age))
+```
+
+## Look at the most commonly embarked place
+
+```{r}
+(mostCommonEmbarked <- allData %>% 
+  group_by(Embarked) %>% 
+  summarize(nEmb = n()) %>% 
+   arrange(desc(nEmb)) %>% 
+   slice(1))
+```
+
+And now, instead of running everything else I just source a pre-defined script:
+
+
+# Run R code on Knot cluster
+
+
+!/bin/bash
+
+PBS-1 nodes=1:ppn=12
+
+PBS-1 walltime=01:00:00
+
+PBS -N MonteCarlos
+
+PBS -V
+
+cd $PBV_O_WORKDIR
+
+Rscript --vanilla montecarlo.R > output
