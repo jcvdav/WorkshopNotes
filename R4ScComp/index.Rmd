@@ -2,7 +2,13 @@
 title: "R for scientific computing"
 author: "Juan Carlos Villaseñor-Derbez"
 date: "`r format(Sys.Date(), '%B %d, %Y')`"
-output: html_notebook
+output: 
+  html_notebook:
+    code_folding: hide
+    fig_caption: yes
+    toc: yes
+    toc_collapse: no
+    toc_float: yes
 ---
 
 

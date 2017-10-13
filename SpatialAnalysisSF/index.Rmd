@@ -1,0 +1,245 @@
+---
+title: "Spatial Analysis with SF"
+author: "Juan Carlos Villaseñor-Derbez"
+date: "4 de octubre de 2017"
+output: 
+  html_notebook:
+    code_folding: hide
+    fig_caption: yes
+    toc: yes
+    toc_collapse: no
+    toc_float: yes
+---
+
+# `SF` Package
+
+## Load basic packages
+
+```{r}
+suppressPackageStartupMessages({
+  library(sf)
+  library(rgdal)
+  library(raster)
+  library(dplyr)
+  library(fasterize)
+  library(ggplot2)
+})
+```
+
+
+```{r}
+mx <- st_read(dsn = "shapefiles", layer="muni_2015gw", quiet = T)
+```
+
+```{r}
+colnames(mx)
+```
+
+## Filter and plot with ggplot
+
+```{r}
+mx %>% 
+  # filter(NOM_ENT %in% c("Quintana Roo", "Yucatán", "Campeche")) %>% 
+  ggplot(aes(fill = NOM_MUN)) +
+  geom_sf() +
+  theme_bw() +
+  theme(legend.position = "None")
+```
+
+## Filter, merge, plot
+
+```{r}
+filter(mx, NOM_ENT %in% c("Baja California", "Baja California Sur", "Sonora", "Sinaloa")) %>% 
+  st_union() %>% 
+  st_sf(geometry = .) %>% 
+  ggplot() +
+  geom_sf(fill = "gray") +
+  theme_bw()
+```
+
+# `raster` package
+
+## Load west coast coastline
+
+```{r}
+west <- sf::read_sf(dsn = "shapefiles", layer = "wc_regions_clean")
+```
+
+## Specify all raster images
+
+```{r}
+sst_files = list.files('rasters', pattern='average_', full.names = T)
+```
+
+## Plot one of them
+
+```{r}
+r <- raster(sst_files[1])
+
+plot(r)
+```
+
+## Histogram of sst of that image
+
+```{r}
+hist(r)
+```
+
+
+```{r}
+sstStack <-  stack(sst_files)
+
+plot(sstStack)
+```
+
+## Raster calculations
+
+I now pass the stacked raster to `calc`, and tell it to calculate the mean, remove the NAs, and substract 273.15 to convert from K to C.
+
+```{r}
+sstAvg <-  calc(sstStack, fun = function(x){mean(x, na.rm=T)-273.15})
+
+plot(sstAvg)
+```
+
+
+## In a tidy way
+
+```{r}
+stack(sst_files) %>% 
+  calc(., fun = function(x){mean(x, na.rm=T)-273.15}) %>% 
+  plot()
+```
+
+```{r}
+stack(sst_files) %>% 
+  calc(., fun = function(x){mean(x, na.rm=T)-273.15}) %>% 
+  plot()
+
+stack(sst_files) %>% 
+  calc(., fun = function(x){mean(x, na.rm=T)-273.15}) %>% 
+  contour(asp = 1, add = T)
+```
+
+## Load net primary production
+
+```{r}
+npp = raster('rasters/annual_npp.tif')
+
+plot(npp)
+```
+
+## See extent and projections for each raster
+
+```{r}
+sstAvg
+
+npp
+```
+
+## Re-project the npp raster to longlat
+
+```{r}
+nppProj <-  projectRaster(npp, crs = ('+proj=longlat'))
+
+plot(nppProj)
+```
+
+## Crop so that we focus on the US west coast
+
+```{r}
+nppCrop = crop(nppProj, sstAvg) #crop nppProj to the extent of sstAvg
+plot(nppCrop)
+```
+
+## Resample to get a better resolution
+
+```{r}
+npp_res = resample(nppCrop, sstAvg, method='ngb')#,progress='text') # Using nearest neighbor
+npp_bil = resample(nppCrop, sstAvg, method='bilinear')#,progress='text') # Using bilinear
+
+plot(npp_res)
+plot(npp_bil)
+```
+
+## Do this the tidy way
+
+```{r}
+projectRaster(npp, crs=('+proj=longlat')) %>%
+  crop(sstAvg) %>%
+  resample(sstAvg, method='ngb') %>%  #,progress='text')
+  plot()
+```
+
+
+## Check the new data
+
+```{r}
+npp_res
+```
+
+
+## Generate a new SST raster with suitable cells
+
+```{r}
+sstPref <- sstAvg
+sstPref[sstPref < 12 | sstPref> 18] <- NA
+
+plot(sstPref)
+
+```
+
+## Using the `NA`s, I can assign suitable areas
+
+All cells that are not `NA`s are suitable for the fish:
+
+```{r}
+sstPref[!is.na(sstPref)] <- 1
+
+plot(sstPref, col = "coral")
+```
+
+## Now for PP
+
+Using reclasify
+
+```{r}
+# values between X and Y, get Z
+nppBin <- reclassify(npp_res, c(-Inf, 2.6, NA,
+                                2.6, 3, 1,
+                                3, Inf, NA))
+
+plot(nppBin)
+```
+
+## Combine both rasters with `overlay()`
+
+```{r}
+overlay(sstPref, nppBin, fun = function(x, y){x*y}) %>% 
+  plot(col = "coral")
+
+plot(west, add = T)
+```
+
+## Use the shapefile as a mask
+
+```{r}
+west_sp <- as(west, "Spatial")
+
+overlay(sstPref, nppBin, fun = function(x, y){x*y}) %>% 
+  mask(west_sp) %>% 
+  plot()
+
+plot(west, add = T)
+
+```
+
+
+```{r}
+mask(sstAvg, west_sp) %>% 
+  plot()
+
+plot(west, add = T)
+```
+
+

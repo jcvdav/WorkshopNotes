@@ -1,11 +1,20 @@
 ---
 title: "Workshop Notes"
 author: "Villaseñor-Derbez, J.C."
-date: "11 de octubre de 2017"
-output: html_document
+date: "`r paste0('Last update: ',format(Sys.Date(), '%B %d, %Y'))`"
+output: 
+  html_document:
+    fig_caption: yes
+    toc: yes
+    toc_collapse: no
+    toc_float: yes
 ---
 
 
 # Workshops
 
-- `r format(Sys.Date(), '%B %d, %Y')` [R for Scientific computing](./R4ScComp/)
+- October 11 [R for Scientific computing](./R4ScComp/) by UCSB's Center for scientific computing (1/5)
+
+- October 4 [Spatial analysis in R with `sf` and `raster`](./SpatialAnalysisSF/) by Eco-Data Science (4/5)
+
+- July 22 [Causal Inference for Conservation Biologists](./ICCBCausalInference/) by Dr. Achaz von Hardenberg [\@achazhardenberg](https://twitter.com/achazhardenberg) (5/5)
