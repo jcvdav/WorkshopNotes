@@ -19,4 +19,6 @@ output:
 
 - July 22, [Causal Inference for Conservation Biologists](./ICCBCausalInference/) by Dr. Achaz von Hardenberg [\@achazhardenberg](https://twitter.com/achazhardenberg) (5/5)
 
+- Sometine in the past [ReferenceManaging in R]() by Tyler Claveller @ Eco-Data Science (4/5) **must add link**
+
 - February 17, [Practicing `purrr`](./LearnPurrr/) by Dan Ovando @ Eco-Data Science (4/5)
