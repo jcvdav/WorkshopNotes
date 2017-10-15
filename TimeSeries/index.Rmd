@@ -11,24 +11,21 @@ output:
     toc_float: yes
 ---
 
+# Part 1, Intro to TS
 
-First we load the packages that will be used:
+## First we load the packages that will be used:
 
-```{r, "Loading packages"}
+```{r}
 suppressPackageStartupMessages({
   library(forecast)
   library(tidyverse)
 })
 ```
 
-# Part 1
-
 ## Read the csv data and plot the Temperature agains month elasped
 
 ```{r}
-
 arctic <- read.csv("ArcticTemp.csv")
-
 plot(arctic$MonthElapse, arctic$Temp, type="l")
 ```
 
