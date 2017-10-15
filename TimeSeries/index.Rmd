@@ -83,7 +83,7 @@ plot(Forecast2)
 ```
 
 
-### Part 2, Time series Analysis with ARIMA
+# Part 2, Time series Analysis with ARIMA
 
 In this case we have 2 time series. One for Residential use of energy and one for Industrial...
 
