@@ -1,0 +1,173 @@
+---
+title: "Time series analysis"
+author: "Villaseñor-Derbez, J.C."
+date: "11 de febrero de 2016"
+output: 
+  html_notebook:
+    code_folding: hide
+    fig_caption: yes
+    toc: yes
+    toc_collapse: no
+    toc_float: yes
+---
+
+
+First we load the packages that will be used:
+
+```{r, "Loading packages"}
+suppressPackageStartupMessages({
+  library(forecast)
+  library(tidyverse)
+})
+```
+
+# Part 1
+
+## Read the csv data and plot the Temperature agains month elasped
+
+```{r}
+
+arctic <- read.csv("ArcticTemp.csv")
+
+plot(arctic$MonthElapse, arctic$Temp, type="l")
+```
+
+## convert to `ts` object
+
+- Create a variable called `TempData` with just the temperature data
+- Use `ts` to convert the data, specify the frequency of the cycle (12 for 12 months) and the year and month of first smapling
+- `ts` objects can be directly plotted with base `plot`
+
+```{r}
+TempData <- arctic$Temp
+
+TempTS <- ts(data=TempData, frequency=12, start=c(1975,1))
+
+plot(TempTS)
+
+```
+
+## Decompose a time series
+
+- A time series might have different components to it (seasonal, annual, decadal...), and we want to extract all that info
+- Use `decompose` and base `plot` to look at the temporal trend, seasonal signature, and random noise in the data
+
+```{r}
+DecompTemp <- decompose(TempTS)
+
+plot(DecompTemp)
+
+```
+
+## Forecasting
+
+### Calculate parameters for existing data
+
+- Use `HoltWinters` to "fit" the data
+- Use base `plot` to see observed (black) and fitted (red) values
+
+```{r}
+Forecast <- HoltWinters(TempTS)
+plot(Forecast)
+```
+
+### Forecast into the future
+
+- Use what `HoltWinters` calculated to feed `forecast`
+- `forecast` needs ou to specify how many points you want. In this case, we want 4 years so 4 Y * 12 M = 48 points.
+- Use base `plot` to look at the projection
+
+```{r}
+Forecast2 <- forecast(Forecast, h=48)
+plot(Forecast2)
+```
+
+
+### Part 2, Time series Analysis with ARIMA
+
+In this case we have 2 time series. One for Residential use of energy and one for Industrial...
+
+```{r, "ARIMA"}
+#Load the data
+EnergyUse <- read.csv("EnergyUse.csv")
+
+#Convert data to time series format
+ResidentialTS <- ts(EnergyUse$Residential, frequency=12, start=c(1993,1)) 
+IndustrialTS <- ts(EnergyUse$Industrial, frequency=12, start=c(1993,1))
+
+#Plot data
+par(mfrow=c(2,1)) 
+plot(ResidentialTS)
+plot(IndustrialTS)
+
+```
+
+##Decompose data and plot it
+
+### For Residential TS
+
+```{r}
+DecompRes <- decompose(ResidentialTS)
+plot(DecompRes)
+```
+
+### For Industrial TS
+
+```{r}
+DecompInd <- decompose(IndustrialTS)
+plot(DecompInd)
+```
+
+## We convert our data to stationary
+
+- Just substract the temporal trend from the total data
+
+```{r}
+ResStationary <- DecompRes$x-DecompRes$trend
+plot(ResStationary)
+```
+
+## Correlograms
+
+- Time series data is often auto-correlated (yesterday's temp is a good predictor for today's temp...)
+- We can inspect temporal correlations with a correlogram:
+
+```{r}
+ResACF <- acf(ResStationary[7:499])
+```
+
+
+#### Using auto.arima
+
+```{r, "auto.arima"}
+ResOpt=auto.arima(ResidentialTS) #This generates the parameters with a default of seasonal component
+IndOpt=auto.arima(IndustrialTS, seasonal=FALSE) # This excludes the seasonal component
+```
+
+From the autoarima, we get that the values are:
+
+Residential: ARIMA(1,0,1)(0,1,1)
+
+Industrial: ARIMA(5,1,2)
+
+And now we can use that to build an ARIMA
+
+```{r, arima}
+
+# We use arima to generate the model
+ResARIMA=arima(ResidentialTS, order=c(1,0,1), seasonal=list(order=c(0,1,1)))
+IndARIMA=arima(IndustrialTS, order=c(5,1,2))
+
+# We can use histogram and qqplots to look for normality
+hist(ResARIMA$residuals)
+qqnorm(ResARIMA$residuals)
+
+# And we use forecast to forecast our data
+ForecastRes=forecast(ResARIMA, h=72)
+ForecastInd=forecast(IndARIMA, h=72)
+
+# And plot it
+plot(ForecastRes)
+plot(ForecastInd)
+
+```
