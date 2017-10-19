@@ -15,6 +15,8 @@ output:
 
 ## 2017
 
+- October 19, [Python for scientific computing](./Python) by UCSB's Center for scientifi ccomputing (1/5)
+
 - October 11, [R for Scientific computing](./R4ScComp/) by UCSB's Center for scientific computing (1/5)
 
 - October 4, [Spatial analysis in R with `sf` and `raster`](./SpatialAnalysisSF/) by Jamie Afflerbach @ Eco-Data Science (4/5)
