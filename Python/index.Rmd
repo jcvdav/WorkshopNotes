@@ -1,6 +1,6 @@
 ---
 title: "Intro to Python"
-author: "Villaseñor-Derbez, J.C."
+author: "Burack Himmetoglu"
 date: "11 de febrero de 2016"
 output: 
   html_notebook:
