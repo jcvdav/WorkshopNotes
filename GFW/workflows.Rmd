@@ -1,0 +1,161 @@
+---
+title: "SFG GFW Workshop"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(bigrquery)
+library(DBI)
+library(sf)
+```
+
+# Workflow 1: Using Rnotebook chunks
+
+```{r}
+BQ_connection <-  dbConnect(dbi_driver(), 
+                            dataset = "Juan", 
+                            project = "ucsb-gfw", 
+                            allowLargeResults = TRUE)
+```
+
+```{r}
+pitcairn <- sf::st_read(dsn = "shapefiles/cPitcairnReserve2.shp")
+
+xmin <- sf::st_bbox(pitcairn)[["xmin"]] - 2
+xmax <- sf::st_bbox(pitcairn)[["xmax"]] + 2
+ymin <- sf::st_bbox(pitcairn)[["ymin"]] - 2
+ymax <- sf::st_bbox(pitcairn)[["ymax"]] + 2
+```
+
+
+```{sql, connection = BQ_connection, output.var = "binned_effort_around_reserve"}
+SELECT
+  FLOOR(lat*4)/4 + .125 lat_bin_center,
+  FLOOR(lon*4)/4 + .125 lon_bin_center,
+  sum(hours) fishing_hours
+FROM
+  [world-fishing-827:gfw_research.nn]
+WHERE
+  _PARTITIONTIME between TIMESTAMP("2016-01-01") and  TIMESTAMP("2016-12-31") AND
+  lat >= ?ymin AND
+  lat <= ?ymax AND
+  lon >= ?xmin AND
+  lon <= ?xmax AND
+  nnet_score == 1 AND
+  (distance_from_shore > 1000
+      OR (implied_speed > .1
+        AND implied_speed < 20)) 
+GROUP BY 
+  lat_bin_center, 
+  lon_bin_center
+  having fishing_hours > 1
+```
+
+```{r}
+(effort_map <- ggplot()+
+  geom_sf(data = pitcairn,
+          fill = "lightblue", 
+          alpha = .2)+
+  geom_raster(data = binned_effort_around_reserve, 
+              aes(x = lon_bin_center, y = lat_bin_center, fill = fishing_hours))+
+  hrbrthemes::theme_ipsum()+
+  viridis::scale_fill_viridis(trans = "log",
+                              breaks = scales::log_breaks(n = 5, base = 5))+
+   guides(fill = guide_colorbar(title = "Fishing hours",
+                                title.position = 'top',
+                                title.hjust = .5))+
+  labs(x = "Longitude",
+       y = "Latitude",
+       title = "Fishing Effort Around Pitcairn (2016)")+
+  theme(axis.text.x = element_text(size = 10),
+        axis.text.y = element_text(size = 10),
+        legend.position = 'bottom',
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 8),
+        legend.key.height = unit(.2, 'cm'),
+        legend.key.width  = unit(1, 'cm'),
+        plot.title = element_text(size = 14, hjust = -.5)))
+```
+
+# Workflow 2: bigrquery
+
+```{r}
+mmsi_of_interest <- c(725000591,725000896,725000357)
+```
+
+```{sql, connection = BQ_connection, output.var = "doesnt_work"}
+Select 
+      mmsi,
+      exact_count_distinct(date(timestamp)) days_at_sea,
+      round(sum(hours)) hours_at_sea,
+      round(sum(if(nnet_score == 1,hours,0))) fishing_hours,
+      exact_count_distinct(if(nnet_score == 1, date(timestamp), null)) fishing_days
+    FROM [world-fishing-827:gfw_research.nn]
+    WHERE 
+      _PARTITIONTIME BETWEEN TIMESTAMP('2016-01-01')
+      AND TIMESTAMP('2016-12-31')
+      AND (distance_from_shore > 1000 OR (implied_speed > .1 AND implied_speed < 20))
+      AND mmsi in (725000591,725000896,725000357)
+    GROUP BY
+      mmsi
+```
+
+```{r}
+sql <- "Select 
+      mmsi,
+      exact_count_distinct(date(timestamp)) days_at_sea,
+      round(sum(hours)) hours_at_sea,
+      round(sum(if(nnet_score == 1,hours,0))) fishing_hours,
+      exact_count_distinct(if(nnet_score == 1, date(timestamp), null)) fishing_days
+    FROM [world-fishing-827:gfw_research.nn]
+    WHERE 
+      _PARTITIONTIME BETWEEN TIMESTAMP('2016-01-01')
+      AND TIMESTAMP('2016-12-31')
+      AND (distance_from_shore > 1000 OR (implied_speed > .1 AND implied_speed < 20))
+      AND mmsi in (725000591,725000896,725000357)
+    GROUP BY
+      mmsi"
+
+t <- bigrquery::query_exec(sql, project = "ucsb-gfw")
+```
+
+
+
+```{r}
+sql <- glue::glue_sql(
+    "Select 
+      mmsi,
+      exact_count_distinct(date(timestamp)) days_at_sea,
+      round(sum(hours)) hours_at_sea,
+      round(sum(if(nnet_score == 1,hours,0))) fishing_hours,
+      exact_count_distinct(if(nnet_score == 1, date(timestamp), null)) fishing_days
+    FROM [world-fishing-827:gfw_research.nn]
+    WHERE 
+      _PARTITIONTIME BETWEEN TIMESTAMP('2016-01-01')
+      AND TIMESTAMP('2016-12-31')
+      AND (distance_from_shore > 1000 OR (implied_speed > .1 AND implied_speed < 20))
+      AND mmsi in ({vals*}) 
+    GROUP BY
+      mmsi",
+  vals = mmsi_of_interest, .con = BQ_connection)
+
+total_effort_by_mmsi_of_interes <- bigrquery::query_exec(sql, project = 'ucsb-gfw')
+```
+
+# Send stuff to BQ
+
+```{r}
+if(dbExistsTable(BQ_connection, "test_mmsi_of_interest")){
+  dbRemoveTable(BQ_connection, "test_mmsi_of_interest") 
+  job <- insert_query_job(sql,"ucsb-gfw",destination_table = "Juan.test_mmsi_of_interest")
+  job
+} else {job <- insert_query_job(sql,"ucsb-gfw",destination_table = "Juan.test_mmsi_of_interest")
+  job}
+
+get_job("ucsb-gfw",job$jobReference$jobId)$status
+```
+
+
+
+

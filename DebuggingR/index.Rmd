@@ -1,0 +1,28 @@
+---
+title: "Debugging R Code"
+author: "Juan Carlos Villaseñor-Derbez"
+date: "30 de Noviembre del 2017"
+output: 
+  html_document:
+    code_folding: hide
+    fig_caption: yes
+    toc: yes
+    toc_collapse: no
+    toc_float: yes
+editor_options: 
+  chunk_output_type: inline
+---
+
+
+## Debugging tools
+
+### `traceback()`
+
+```{r}
+dplyr::add_count("asd")
+```
+
+```{r}
+traceback()
+```
+

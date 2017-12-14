@@ -1,0 +1,98 @@
+---
+title: "Global fishing watch"
+author: "Juan Mayorga"
+date: "17 de Noviembre del 2017"
+output: 
+  html_document:
+    code_folding: hide
+    fig_caption: yes
+    toc: yes
+    toc_collapse: no
+    toc_float: yes
+editor_options: 
+  chunk_output_type: inline
+---
+
+## Intro
+
+- AIS
+    - 400 K vessels
+    - 80 K fishing vessels
+    - 24 Billion messages since 2012
+    - 40 million messages added each day
+
+- Tables in GFW lagged about a year
+
+## Two (soon 3) platforms
+
+- Public platform (the map)
+- Raw data:
+    - What we have
+    - Individual vessel behavior
+- Daily rasters of fishing effort
+    - Google Earth Engine
+    - Rasters by gear, by country at 0.5° x 0.5° ress
+
+## AIS overview
+
+- Broadcasting depends on:
+    - Boat speed
+    - AIS quality (the box)
+    - AIS-B is the crappy one
+    - The use and miss-use of AIS: good practices (paper Juan is involved in)
+
+- Messages in AIS
+    - MMSI: a 9-digit integer identification code
+        - Some vessels share an MMSI, which is a problem
+        - Name
+        - Callsign
+        - IMO (highes quality of identity number, it is fixed and cannot be tampered with)
+        - Length
+        - Vessel
+        - Destination
+        
+> The first four variables are used to match vessels to national registries
+
+- Tricky to do TS analysis with GFW because satelites and AIS's increase
+- Things to keep in mind:
+    - Multiple vesses use the same mmsi
+    - Vessels turn off their AIS
+    - Positions are intentionally offset:
+        - Switch sign in their coords
+        - Delete a digit
+
+
+```{r}
+
+suppressPackageStartupMessages({
+  library(bigrquery)
+  library(DBI)
+  library(tidyverse)
+})
+
+```
+
+
+```
+BQ_connection <- dbConnect(dbi_driver(),
+                           dataset = "Juan",
+                           project = "ucsb-gfw",
+                           allowLargeResults = TRUE)
+```
+
+The chunk would have options `connection = BQ_connection` and `output.var = "my_results"`
+
+```
+SELECT *
+FROM [ucsb-gfw:Juan.test_mmsi_of_interest]
+```
+
+
+
+
+
+
+
+
+
+

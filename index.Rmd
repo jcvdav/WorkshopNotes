@@ -16,7 +16,9 @@ output:
 
 ## 2017
 
-- October 19, [Python for scientific computing](./Python) by UCSB's Center for scientifi ccomputing (1/5)
+- November 16, [Intro to Global Fishing Watch](./GFW) by SFG's Juan Mayorga (5/5)
+
+- October 19, [Python for scientific computing](./Python) by UCSB's Center for scientifi computing (1/5)
 
 - October 11, [R for Scientific computing](./R4ScComp/) by UCSB's Center for scientific computing (1/5)
 
@@ -24,10 +26,11 @@ output:
 
 - July 22, [Causal Inference for Conservation Biologists](./ICCBCausalInference/) by Dr. Achaz von Hardenberg [\@achazhardenberg](https://twitter.com/achazhardenberg) (5/5)
 
-- Sometine in the past [ReferenceManaging in R]() by Tyler Claveller @ Eco-Data Science (4/5) **must add link**
+- Sometine in the past [Reference Managing in R](https://tclavelle.github.io/blog/reference_tips/) by Tyler Claveller @ Eco-Data Science (4/5)
 
 - February 17, [Practicing `purrr`](./LearnPurrr/) by Dan Ovando @ Eco-Data Science (4/5)
 
 ## 2016
 
 - February 11, [Time Series Analysis](./TimeSeries/) by Allison Horst @ ESM 244
+
