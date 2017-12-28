@@ -210,6 +210,8 @@ head(sign_prob)
 
 ## Naive Bayes
 
+[Slides](Slides/Course1/chapter2.pdf)
+
 ### Computing probabilities
 
 The `where9am` data frame contains 91 days (thirteen weeks) worth of data in which Brett recorded his `location` at 9am each day as well as whether the daytype was a `weekend` or `weekday`.
@@ -289,12 +291,392 @@ predict(locmodel, thursday9am)
 predict(locmodel, saturday9am)
 ```
 
-**https://campus.datacamp.com/courses/supervised-learning-in-r-classification/chapter-2-naive-bayes?ex=5**
+### Examining "raw" probabilities
+
+The `naivebayes` package offers several ways to peek inside a Naive Bayes model.
+
+Typing the name of the model object provides the a priori (overall) and conditional probabilities of each of the model's predictors. If one were so inclined, you might use these for calculating posterior (predicted) probabilities by hand.
+
+Alternatively, R will compute the posterior probabilities for you if the `type = "prob"` parameter is supplied to the `predict()` function.
+
+Using these methods, examine how the model's predicted 9am location probability varies from day-to-day.
+
+**Instructions**
+
+The model `locmodel` that you fit in the previous exercise is in your workspace.
+
+- Print the `locmodel` object to the console to view the computed a priori and conditional probabilities.
+- Use the `predict()` function similarly to the previous exercise, but with `type = "prob"` to see the predicted probabilities for Thursday at 9am.
+- Compare these to the predicted probabilities for Saturday at 9am.
+
+```{r}
+# The 'naivebayes' package is loaded into the workspace
+# and the Naive Bayes 'locmodel' has been built
+
+# Examine the location prediction model
+locmodel
+
+# Obtain the predicted probabilities for Thursday at 9am
+predict(locmodel, thursday9am , type = "prob")
+
+# Obtain the predicted probabilities for Saturday at 9am
+predict(locmodel, saturday9am , type = "prob")
+```
+
+### A more sophisticated location model
+
+The `locations` dataset records Brett's location every hour for 13 weeks. Each hour, the tracking information includes the `daytype` (weekend or weekday) as well as the `hourtype` (morning, afternoon, evening, or night).
+
+Using this data, build a more sophisticated model to see how Brett's predicted location not only varies by the day of week but also by the time of day.
+
+**Instructions**
+
+```{r, echo = FALSE}
+weekday_afternoon <- locations[13, c(4,6,7)]
+weekday_evening <- locations[19, c(4,6,7)]
+```
+
+
+The dataset `locations` is already loaded in your workspace.
+
+- Use the R formula interface to build a model where location depends on both `daytype` and `hourtype`. Recall that the function `naive_bayes()` takes 2 arguments: `formula` and `data`.
+- Predict Brett's location on a weekday afternoon using the dataframe `weekday_afternoon` and the `predict()` function.
+- Do the same for a `weekday_evening`.
+
+```{r}
+# The 'naivebayes' package is loaded into the workspace already
+
+# Build a NB model of location
+locmodel <- naive_bayes(location ~ daytype + hourtype, data = locations)
+
+# Predict Brett's location on a weekday afternoon
+predict(locmodel, weekday_afternoon)
+
+# Predict Brett's location on a weekday evening
+predict(locmodel, weekday_evening)
+```
+
+### Preparing for unforeseen circumstances
+
+While Brett was tracking his location over 13 weeks, he never went into the office during the weekend. Consequently, the joint probability of $P(office \land weekend) = 0$.
+
+Explore how this impacts the predicted probability that Brett may go to work on the weekend in the future. Additionally, you can see how using the *Laplace correction* will allow a small chance for these types of unforeseen circumstances.
+
+**Instructions**
+
+```{r}
+weekend_afternoon <- locations[85, c(4,6,7)]
+```
+
+
+The model `locmodel` is already in your workspace, along with the dataframe `weekend_afternoon`.
+
+- Use the `locmodel` to output predicted probabilities for a weekend afternoon by using the `predict()` function. Remember to set the `type` argument.
+- Create a new naive Bayes model with the Laplace smoothing parameter set to `1`. You can do this by setting the `laplace` argument in your call to `naive_bayes()`. Save this as `locmodel2`.
+- See how the new predicted probabilities compare by using the `predict()` function on your new model.
+
+```{r}
+# The 'naivebayes' package is loaded into the workspace already
+# The Naive Bayes location model (locmodel) has already been built
+
+# Observe the predicted probabilities for a weekend afternoon
+predict(locmodel, weekend_afternoon, type = "prob")
+
+# Build a new model using the Laplace correction
+locmodel2 <- naive_bayes(location ~ daytype + hourtype, data = locations, laplace = 1)
+
+# Observe the new predicted probabilities for a weekend afternoon
+predict(locmodel2, weekend_afternoon, type = "prob")
+```
 
 ## Logistic Regression
 
+[Slides](Slides/Course1/chapter3.pdf)
+
+### Building simple logistic regression models
+
+The `donors` dataset contains 93,462 examples of people mailed in a fundraising solicitation for paralyzed military veterans. The `donated` column is `1` if the person made a donation in response to the mailing and `0` otherwise. This binary outcome will be the dependent variable for the logistic regression model.
+
+The remaining columns are features of the prospective donors that may influence their donation behavior. These are the model's *independent variables*.
+
+When building a regression model, it it often helpful to form a hypothesis about which independent variables will be predictive of the dependent variable. The `bad_address` column, which is set to `1` for an invalid mailing address and `0` otherwise, seems like it might reduce the chances of a donation. Similarly, one might suspect that religious interest (`interest_religion`) and interest in veterans affairs (`interest_veterans`) would be associated with greater charitable giving.
+
+In this exercise, you will use these three factors to create a simple model of donation behavior.
+
+**Instructions**
+
+```{r, echo = FALSE}
+donors <- read.csv("Data/1Classification/donors.csv")
+```
+
+The dataset donors is available in your workspace.
+
+- Examine `donors` using the `str()` function.
+- Count the number of occurrences of each level of the `donated` variable using the `table()` function.
+- Fit a logistic regression model using the formula interface and the three independent variables described above.
+    - Call `glm()` with the formula as its first argument and the dataframe as the `data` argument.
+    - Save the result as `donation_model`.
+- Summarize the model object with `summary()`.
+
+```{r}
+# Examine the dataset to identify potential independent variables
+str(donors)
+
+# Explore the dependent variable
+table(donors$donated)
+
+# Build the donation model
+donation_model <- glm(donated ~ bad_address + interest_religion + interest_veterans, 
+                      data = donors, family = "binomial")
+
+# Summarize the model results
+summary(donation_model)
+```
+
+### Making a binary prediction
+
+In the previous exercise, you used the `glm()` function to build a logistic regression model of donor behavior. As with many of R's machine learning methods, you can apply the `predict()` function to the model object to forecast future behavior. By default, `predict()` outputs predictions in terms of log odds unless `type = "response"` is specified. This converts the log odds to probabilities.
+
+Because a logistic regression model estimates the probability of the outcome, it is up to you to determine the threshold at which the probability implies action. One must balance the extremes of being too cautious versus being too aggressive. For example, if you were to solicit only the people with a 99% or greater donation probability, you may miss out on many people with lower estimated probabilities that still choose to donate. This balance is particularly important to consider for severely imbalanced outcomes, such as in this dataset where donations are relatively rare.
+
+**Instructions**
+
+The dataset donors is already loaded in your workspace.
+
+- Use the `predict()` function to estimate each person's donation probability. Use the `type` argument to get probabilities. Assign the predictions to a new column called `donation_prob`.
+- Find the actual probability that an average person would donate by passing the `mean()` function a column of the dataframe.
+- Use `ifelse()` to predict a donation if their predicted donation probability is greater than average. Assign the predictions to a new column called `donation_pred`.
+- Use the `mean()` function to calculate the model's accuracy.
+
+```{r}
+# Estimate the donation probability
+donors$donation_prob <- predict(donation_model, type = "response")
+
+# Find the donation probability of the average prospect
+mean(donors$donated)
+
+# Predict a donation if probability of donation is greater than average (0.0504)
+donors$donation_pred <- ifelse(donors$donation_prob > 0.0504, 1, 0)
+
+# Calculate the model's accuracy
+mean(donors$donated == donors$donation_pred)
+```
+
+### Calculating ROC Curves and AUC
+
+The previous exercises have demonstrated that accuracy is a very misleading measure of model performance on imbalanced datasets. Graphing the model's performance better illustrates the tradeoff between a model that is overly agressive and one that is overly passive.
+
+In this exercise you will create a ROC curve and compute the area under the curve (AUC) to evaluate the logistic regression model of donations you built earlier.
+
+**Instructions**
+
+
+The dataset donors with the column of predicted probabilities, donation_prob ,is already loaded in your workspace.
+
+- Load the `pROC` package.
+- Create a ROC curve with `roc()` and the columns of actual and predicted donations. Store the result as `ROC`.
+- Use `plot()` to draw the `ROC` object. Specify `col = "blue"` to color the curve blue.
+- Compute the area under the curve with `auc()`.
+
+```{r, warning = F, message = F}
+# Load the pROC package
+library(pROC)
+
+# Create a ROC curve
+ROC <- roc(donors$donated, donors$donation_prob)
+
+# Plot the ROC curve
+plot(ROC, col = "blue")
+
+# Calculate the area under the curve (AUC)
+auc(ROC)
+```
+
+### Coding categorical features
+
+Sometimes a dataset contains numeric values that represent a categorical feature.
+
+In the `donors` dataset, `wealth_rating` uses numbers to indicate the donor's wealth level:
+
+- 0 = Unknown
+- 1 = Low
+- 2 = Medium
+- 3 = High
+
+This exercise illustrates how to prepare this type of categorical feature and then examines its impact on a logistic regression model.
+
+**Instructions**
+
+The dataframe `donors` is loaded in your workspace.
+
+- Create a factor from the numeric `wealth_rating` with labels as shown above by passing the `factor()` function the column you want to convert, the individual levels, and the labels.
+- Use `relevel()` to change the reference category to `Medium`. The first argument should be your `factor` column.
+- Build a logistic regression model using the column `wealth_rating` to predict `donated` and display the result with `summary()`.
+
+```{r, results = "asis"}
+# Convert the wealth rating to a factor
+donors$wealth_rating <- factor(donors$wealth_rating, levels = c(0, 1, 2, 3), labels = c("Unknown", "Low", "Medium", "High"))
+
+# Use relevel() to change reference category
+donors$wealth_rating <- relevel(donors$wealth_rating, ref = "Medium")
+
+model <- glm(donated ~ wealth_rating, data = donors, family = "binomial")
+
+# See how our factor coding impacts the model
+# summary(model)
+stargazer::stargazer(model, type = "html", single.row = T)
+```
+
+### Handling missing data
+
+Some of the prospective donors have missing `age` data. Unfortunately, R will exclude any cases with `NA` values when building a regression model.
+
+One workaround is to replace, or **impute**, the missing values with an estimated value. After doing so, you may also create a missing data indicator to model the possibility that cases with missing data are different in some way from those without.
+
+**Instructions**
+
+The dataframe `donors` is loaded in your workspace.
+
+- Use `summary()` on `donors` to find the average `age` of prospects with non-missing data.
+- Use `ifelse()` and the test `is.na(donor$age)` to impute the average (rounded to 2 decimal places) for cases with missing `age`.
+- Create a binary dummy variable named `missing_age` indicating the presence of missing data using another `ifelse()` call and the same test.
+
+```{r}
+# Find the average age among non-missing values
+summary(donors$age)
+
+# Impute missing age values with mean(age)
+donors$imputed_age <- ifelse(is.na(donors$age), 61.65, donors$age)
+
+# Create missing value indicator for age
+donors$missing_age <- ifelse(is.na(donors$age), 1, 0)
+```
+
+### Building a more sophisticated model
+
+One of the best predictors of future giving is a history of recent, frequent, and large gifts. In marketing terms, this is known as R/F/M:
+
+- Recency
+- Frequency
+- Money
+
+Donors that haven given both recently and frequently may be especially likely to give again; in other words, the combined impact of recency and frequency may be greater than the sum of the separate effects.
+
+Because these predictors together have a greater impact on the dependent variable, their joint effect must be modeled as an interaction.
+
+
+**Instructions**
+
+- Create a logistic regression model of `donated` as a function of `money` plus the interaction of `recency` and `frequency`. Use `*` to add the interaction term.
+- Examine the model's `summary()` to confirm the interaction effect was added.
+- Save the model's predicted probabilities as `rfm_prob`. Use the `predict()` function, and remember to set the `type` argument.
+- Plot a ROC curve by using the function `roc()`. Remember, this function takes the column of outcomes and the vector of predictions.
+- Compute the AUC for the new model with the function `auc()` and compare performance to the simpler model.
+
+```{r, results = "asis"}
+# Build a recency, frequency, and money (RFM) model
+rfm_model <- glm(formula = donated ~ money + recency * frequency, data = donors, family = "binomial")
+
+# Summarize the RFM model to see how the parameters were coded
+# summary(rfm_model)
+stargazer::stargazer(rfm_model, type = "html", single.row = T)
+
+# Compute predicted probabilities for the RFM model
+rfm_prob <- predict(rfm_model, type = "response")
+
+# Plot the ROC curve and find AUC for the new model
+library(pROC)
+ROC <- roc(donors$donated, rfm_prob)
+plot(ROC, col = "red")
+auc(ROC)
+```
+
+### Building a stepwise regression model
+
+In the absence of subject-matter expertise, **stepwise regression** can assist with the search for the most important predictors of the outcome of interest.
+
+In this exercise, you will use a forward stepwise approach to add predictors to the model one-by-one until no additional benefit is seen.
+
+**Instructions**
+
+- Use the R formula interface with `glm()` to specify the base model with no predictors. Set the explanatory variable equal to `1`.
+- Use the R formula interface again with `glm()` to specify the model with all predictors.
+- Apply `step()` to these models to perform forward stepwise regression. Set the first argument to `null_model` and set `direction = "forward"`. This might take a while (up to 10 or 15 seconds) as your computer has to fit quite a few different models to perform stepwise selection.
+- Create a vector of predicted probabilities using the `predict()` function.
+- Plot the ROC curve with `roc()` and `plot()` and compute the AUC of the stepwise model with `auc()`.
+
+```{r}
+# Specify a null model with no predictors
+null_model <- glm(formula = donated ~ 1, data = donors, family = "binomial")
+
+# Specify the full model using all of the potential predictors
+full_model <- glm(formula = donated ~ ., data = donors, family = "binomial")
+
+# Use a forward stepwise algorithm to build a parsimonious model
+step_model <- step(null_model, scope = list(lower = null_model, upper = full_model), direction = "forward")
+
+# Estimate the stepwise donation probability
+step_prob <- predict(step_model, type = "response")
+
+# Plot the ROC of the stepwise model
+library(pROC)
+ROC <- roc(donors$donated, step_prob)
+plot(ROC, col = "red")
+auc(ROC)
+```
+
 ## Classification Trees
 
+[Slides](Slides/Course1/chapter3.pdf)
+
+### Building a simple decision tree
+
+The `loans` dataset contains 11,312 randomly-selected people who were applied for and later received loans from Lending Club, a US-based peer-to-peer lending company.
+
+You will use a decision tree to try to learn patterns in the outcome of these loans (either repaid or default) based on the requested loan amount and credit score at the time of application.
+
+Then, see how the tree's predictions differ for an applicant with good credit versus one with bad credit.
+
+**Instructions**
+
+```{r, echo = FALSE}
+loans_all <- read.csv("Data/1Classification/loans.csv")
+
+loans <- filter(loans_all, keep == 1) %>% 
+  mutate(outcome = ifelse(default == 1, "default", "repaid")) %>% 
+  select(-c(1:3))
+
+good_credit <- read.csv("Data/1Classification/good_credit.csv")
+
+bad_credit <- read.csv("Data/1Classification/bad_credit.csv")
+```
+
+
+The dataset loans is already in your workspace.
+
+- Load the `rpart` package.
+- Fit a decision tree model with the function `rpart()`.
+- Supply the R formula that specifies `outcome` as a function of `loan_amount` and `credit_score` as the first argument.
+- Leave the `control` argument alone for now. (You'll learn more about that later!)
+- Use `predict()` with the resulting loan model to predict the `outcome` for the `good_credit` applicant. Use the `type` argument to predict the `"class"` of the outcome.
+- Do the same for the `bad_credit` applicant.
+
+```{r}
+# Load the rpart package
+library(rpart)
+
+# Build a lending model predicting loan outcome versus loan amount and credit score
+loan_model <- rpart(outcome ~ loan_amount + credit_score, data = loans, method = "class", control = rpart.control(cp = 0))
+
+# Make a prediction for someone with good credit
+predict(loan_model, good_credit, type = "class")
+
+# Make a prediction for someone with bad credit
+predict(loan_model, bad_credit, type = "class")
+```
+
+
+https://campus.datacamp.com/courses/supervised-learning-in-r-classification/chapter-4-classification-trees?ex=3
 
 # Supervised Learning: Regression
 
