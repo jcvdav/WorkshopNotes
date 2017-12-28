@@ -12,7 +12,7 @@ output:
 
 # 2017
 
-- December, [Machine Learning](./SLR/) by [DataCamp](https://www.datacamp.com/tracks/machine-learning) (5/5)
+- December, [Machine Learning with R](./SLR/) by [DataCamp](https://www.datacamp.com/tracks/machine-learning) (5/5)
 
 - November 16, [Intro to Global Fishing Watch](./GFW/) by SFG's Juan Mayorga (5/5)
 
