@@ -1,6 +1,5 @@
 ---
 title: "Machine Learning with R"
-author: "Juan Carlos Villaseñor-Derbez"
 date: "14 de diciembre de 2017"
 output:
   html_document:
@@ -13,6 +12,8 @@ output:
 editor_options: 
   chunk_output_type: inline
 ---
+
+Disclaimer: These are just my notes from the DataCamp course. **Not intended for distribution.**
 
 ```{r, echo = F, warnings = F, message = F}
 suppressPackageStartupMessages({
@@ -864,10 +865,700 @@ loans_test$pred <- predict(loan_model, loans_test, type = "class")
 mean(loans_test$pred == loans_test$outcome)
 ```
 
-
 # Supervised Learning: Regression
 
+## What is Regression?
 
+[Slides](Slides/Course2/chapter1.pdf)
+
+### Code a simple one-variable regression
+
+For the first coding exercise, you'll create a formula to define a one-variable modeling task, and then fit a linear model to the data. You are given the rates of male and female unemployment in the United States over several years ([Source](http://college.cengage.com/mathematics/brase/understandable_statistics/7e/students/datasets/slr/frames/slr02.html)).
+
+The task is to predict the rate of female unemployment from the observed rate of male unemployment. The outcome is `female_unemployment`, and the input is `male_unemployment`.
+
+The sign of the variable coefficient tells you whether the outcome increases (+) or decreases (-) as the variable increases.
+
+Recall the calling interface for [`lm()`](https://www.rdocumentation.org/packages/stats/topics/lm) is:
+
+`lm(formula, data = ___)`
+
+**Instructions**
+
+```{r, echo = FALSE}
+unemployment <- readRDS("Data/2Regression/unemployment.rds")
+```
+
+
+The data frame `unemployment` is in your workspace.
+
+- Define a formula that expresses `female_unemployment` as a function of `male_unemployment`. Assign the formula to the variable `fmla` and print it.
+- Then use `lm()` and `fmla` to fit a linear model to predict female unemployment from male unemployment using the data set `unemploymen`t.
+- Print the model. Is the coefficent for male unemployment consistent with what you would expect? Does female unemployment increase as male unemployment does?
+
+```{r}
+# unemployment is loaded in the workspace
+summary(unemployment)
+
+# Define a formula to express female_unemployment as a function of male_unemployment
+fmla <- as.formula("female_unemployment ~ male_unemployment")
+
+# Print it
+fmla
+
+# Use the formula to fit a model: unemployment_model
+unemployment_model <- lm(fmla, unemployment)
+```
+
+```{r, results = "asis"}
+# Print it
+# unemployment_model
+stargazer::stargazer(unemployment_model, type = "html", single.row = F)
+```
+
+
+### Examining a model
+
+Let's look at the model `unemployment_model` that you have just created. There are a variety of different ways to examine a model; each way provides different information. We will use [`summary()`](https://www.rdocumentation.org/packages/base/topics/summary), [`broom::glance()`](https://www.rdocumentation.org/packages/broom/topics/glance), and [`sigr::wrapFTest()`](https://www.rdocumentation.org/packages/sigr/topics/wrapFTest).
+
+**Instructions**
+
+The object `unemployment_model` is in your workspace.
+
+- Print unemployment_model again. What information does it report?
+- Call `summary(`) on `unemployment_model`. In addition to the coefficient values, you get standard errors on the coefficient estimates, and some goodness-of-fit metrics like R-squared.
+- Call `glance()` on the model to see the performance metrics in an orderly data frame. Can you match the information from `summary()` to the columns of `glance()`?
+- Now call `wrapFTest()` on the model to see the R-squared again.
+
+```{r}
+# broom and sigr are already loaded in your workspace
+# Print unemployment_model
+# unemployment_model
+
+# Call summary() on unemployment_model to get more details
+summary(unemployment_model)
+
+# Call glance() on unemployment_model to see the details in a tidier form
+broom::glance(unemployment_model)
+
+# Call wrapFTest() on unemployment_model to see the most relevant details
+sigr::wrapFTest(unemployment_model)
+
+```
+
+### Predicting from the unemployment model
+
+In this exercise, you will use your unemployment model `unemployment_model` to make predictions from the `unemployment` data, and compare predicted female unemployment rates to the actual observed female unemployment rates on the training data, `unemployment`. You will also use your model to predict on the new data in `newrates`, which consists of only one observation, where male unemployment is 5%.
+
+The [`predict()`](https://www.rdocumentation.org/packages/stats/topics/predict.lm) interface for `lm` models takes the form
+
+`predict(model, newdata)`
+
+You will use the `ggplot2` package to make the plots, so you will add the prediction column to the `unemployment` data frame. You will plot outcome versus prediction, and compare them to the line that represents perfect predictions (that is when the outcome is equal to the predicted value).
+
+The `ggplot2` command to plot a scatterplot of `dframe$outcome` versus `dframe$pred` (`pred` on the x axis, `outcome` on the y axis), along with a blue line where `outcome == pred` is as follows:
+
+```
+ggplot(dframe, aes(x = pred, y = outcome)) + 
+       geom_point() +  
+       geom_abline(color = "blue")
+```
+
+**Instructions**
+
+```{r, echo = F}
+newrates <- data.frame(male_unemployment = 5)
+```
+
+
+The objects `unemployment`, `unemployment_model` and `newrates` are in your workspace.
+
+- Use `predict()` to predict female unemployment rates from the `unemployment` data. Assign it to a new column: prediction.
+- Use the `library()` command to load the `ggplot2` package.
+- Use `ggplot()` to compare the predictions to actual unemployment rates. Put the predictions on the x axis. How close are the results to the line of perfect prediction?
+- Use the data frame `newrates` to predict expected female unemployment rate when male unemployment is 5%. Assign the answer to the variable `pred` and print it.
+
+```{r}
+# unemployment is in your workspace
+# summary(unemployment)
+
+# newrates is in your workspace
+newrates
+
+# Predict female unemployment in the unemployment data set
+unemployment$prediction <-  predict(unemployment_model)
+
+# load the ggplot2 package
+library(ggplot2)
+
+# Make a plot to compare predictions to actual (prediction on x axis). 
+ggplot(unemployment, aes(x = prediction, y = female_unemployment)) + 
+  geom_point() +
+  geom_abline(color = "blue")
+
+# Predict female unemployment rate when male unemployment is 5%
+pred <- predict(unemployment_model, newrates)
+# Print it
+pred
+```
+
+### Multivariate linear regression (Part 1)
+
+In this exercise, you will work with the blood pressure dataset ([Source](http://college.cengage.com/mathematics/brase/understandable_statistics/7e/students/datasets/mlr/frames/frame.html)), and model `blood_pressure` as a function of `weight` and `age`.
+
+**Instructions**
+
+```{r}
+bloodpressure <- readRDS("Data/2Regression/bloodpressure.rds")
+```
+
+The data frame bloodpressure is in the workspace.
+
+- Define a formula that expresses `blood_pressure` explicitly as a function of `age` and `weight`. Assign the formula to the variable `fmla` and print it.
+- Use `fmla` to fit a linear model to predict `blood_pressure` from `age` and `weight` in the data set `bloodpressure`. Call the model `bloodpressure_model`.
+- Print the model and call `summary()` on it. Does blood pressure increase or decrease with age? With weight?
+
+```{r}
+# bloodpressure is in the workspace
+# summary(bloodpressure)
+
+# Create the formula and print it
+fmla <- as.formula("blood_pressure ~ weight + age")
+fmla
+
+# Fit the model: bloodpressure_model
+bloodpressure_model <- lm(fmla, bloodpressure)
+
+```
+
+```{r, results = "asis"}
+# Print bloodpressure_model and call summary() 
+# bloodpressure_model
+# summary(bloodpressure_model)
+stargazer::stargazer(bloodpressure_model, type = "html", single.row = T)
+
+```
+
+### Multivariate linear regression (Part 2)
+
+Now you will make predictions using the blood pressure model `bloodpressure_model` that you fit in the previous exercise.
+
+You will also compare the predictions to outcomes graphically. `ggplot2` is already loaded in your workspace. Recall the plot command takes the form:
+
+```
+ggplot(dframe, aes(x = pred, y = outcome)) + 
+     geom_point() + 
+     geom_abline(color = "blue")
+```
+
+**Instructions**
+
+The objects `bloodpressure` and `bloodpressure_model` are in the workspace.
+
+- Use `predict()` to predict blood pressure in the `bloodpressure` dataset. Assign the predictions to the column prediction.
+- Graphically compare the predictions to actual blood pressures. Put predictions on the x axis. How close are the results to the line of perfect prediction?
+
+```{r}
+# bloodpressure is in your workspace
+# summary(bloodpressure)
+
+# bloodpressure_model is in your workspace
+# bloodpressure_model
+
+# predict blood pressure using bloodpressure_model :prediction
+bloodpressure$prediction <- predict(bloodpressure_model)
+
+# plot the results
+ggplot(bloodpressure, aes(x = prediction, y = blood_pressure)) +
+    geom_point() +
+    geom_abline(color = "blue")
+```
+
+## Training and Evaluating Regression Models
+
+### Graphically evaluate the unemployment model
+
+In this exercise you will graphically evaluate the unemployment model, `unemployment_model`, that you fit to the `unemployment` data in the previous chapter. Recall that the model predicts `female_unemployment` from `male_unemployment`.
+
+You will plot the model's predictions against the actual `female_unemployment`; recall the command is of the form
+
+```
+ggplot(dframe, aes(x = pred, y = outcome)) + 
+       geom_point() +  
+       geom_abline()
+```
+
+Then you will calculate the residuals:
+
+```
+residuals <- actual outcome - predicted outcome
+```
+and plot predictions against residuals. The residual graph will take a slightly different form: you compare the residuals to the horizonal line $x=0$ (using `geom_hline()`) rather than to the line $x=y$. The command will be provided.
+
+**Instructions**
+
+The data frame`unemployment` and model `unemployment_model` are available in the workspace.
+
+- Use `predict()` to get the model predictions and add them to `unemployment` as the column predictions.
+- Plot predictions (on the x-axis) versus actual female unemployment rates. Are the predictions near the x=yx=y line?
+- Calculate the residuals between the predictions and actual unemployment rates. Add these residuals to `unemployment` as the column `residuals`.
+- Fill in the blanks to plot predictions (on the x-axis) versus residuals (on the y-axis). This gives you a different view of the model's predictions as compared to ground truth.
+
+```{r}
+# unemployment is in the workspace
+# summary(unemployment)
+
+# unemployment_model is in the workspace
+# summary(unemployment_model)
+
+# Make predictions from the model
+unemployment$predictions <- predict(unemployment_model)
+
+# Fill in the blanks to plot predictions (on x-axis) versus the female_unemployment rates
+ggplot(unemployment, aes(x = predictions, y = female_unemployment)) +
+geom_point()+
+geom_abline()
+
+# Calculate residuals
+unemployment$residuals <- unemployment$female_unemployment - unemployment$predictions
+
+# Fill in the blanks to plot predictions (on x-axis) versus the residuals
+ggplot(unemployment, aes(x = predictions, y = residuals)) + 
+  geom_pointrange(aes(ymin = 0, ymax = residuals)) + 
+  geom_hline(yintercept = 0, linetype = 3) + 
+  ggtitle("residuals vs. linear model prediction")
+```
+
+### The gain curve to evaluate the unemployment model
+
+In the previous exercise you made predictions about `female_unemployment` and visualized the predictions and the residuals. Now, you will also plot the gain curve of the `unemployment_model`'s predictions against actual `female_unemployment` using the [`WVPlots::GainCurvePlot()`](https://www.rdocumentation.org/packages/WVPlots/topics/GainCurvePlot) function.
+
+For situations where order is more important than exact values, the gain curve helps you check if the model's predictions sort in the same order as the true outcome.
+
+Calls to the function `GainCurvePlot()` look like:
+
+```
+GainCurvePlot(frame, xvar, truthvar, title)
+```
+
+where
+
+- frame is a data frame
+- xvar and truthvar are strings naming the prediction and actual outcome columns of frame
+- title is the title of the plot
+
+When the predictions sort in exactly the same order, the relative Gini coefficient is 1. When the model sorts poorly, the relative Gini coefficient is close to zero, or even negative.
+
+**Instructions**
+
+The data frame `unemployment` and the model `nemployment_model` are in the workspace.
+
+- Load the package `WVPlots`.
+- Plot the gain curve. Give the plot the title "Unemployment model". Do the model's predictions sort correctly?
+
+```{r}
+# unemployment is in the workspace (with predictions)
+# summary(unemployment)
+
+# unemployment_model is in the workspace
+# summary(unemployment_model)
+
+# Load the package WVPlots
+library(WVPlots)
+
+# Plot the Gain Curve
+GainCurvePlot(unemployment, "predictions", "female_unemployment", "Unemployment model")
+```
+
+### Calculate RMSE
+In this exercise you will calculate the RMSE of your unemployment model. In the previous coding exercises, you added two columns to the unemployment dataset:
+
+the model's predictions (predictions column)
+the residuals between the predictions and the outcome (residuals column)
+You can calculate the RMSE from a vector of residuals, resres, as:
+
+$$RMSE = \sqrt{\mathrm{mean}{(res^2)}}$$
+
+$$RMSE = \sqrt{\frac{1}{n}\sum_{i = 1}^n{(pred_i-obs_i)^2}}$$
+
+You want RMSE to be small. How small is "small"? One heuristic is to compare the RMSE to the standard deviation of the outcome. With a good model, the RMSE should be smaller.
+
+**Instructions**
+
+The data frame `unemployment` is in your workspace.
+
+- Review the `unemployment` data from the previous exercise.
+- For convenience, assign the residuals column from `unemployment` to the variable `res`.
+- Calculate RMSE: square `res`, take its mean, and then square root it. Assign this to the variable `rmse` and print it.
+    - Tip: you can do this in one step by wrapping the assignment in parentheses: `(rmse <- ___)`
+- Calculate the standard deviation of `female_unemployment` and assign it to the variable `sd_unemployment`. Print it. *How does the rmse of the model compare to the standard deviation of the data?*
+
+```{r}
+# unemployment is in the workspace
+# summary(unemployment)
+
+# For convenience put the residuals in the variable res
+res <- unemployment$residuals
+
+# Calculate RMSE, assign it to the variable rmse and print it
+(rmse <- sqrt(mean(res^2)))
+
+# Calculate the standard deviation of female_unemployment and print it
+(sd_unemployment <- sd(unemployment$female_unemployment))
+```
+
+### Calculate R-Squared
+
+Now that you've calculated the RMSE of your model's predictions, you will examine how well the model fits the data: that is, how much variance does it explain. You can do this using $R^2$.
+
+Suppose $y$ is the true outcome, $p$ is the prediction from the model, and $res=y−p$ are the residuals of the predictions.
+
+Then the total sum of squares $tss$ ("total variance") of the data is:
+
+$$tss = \sum{(y-\bar{y})}^2$$
+
+where $\bar{y}$ is the mean value of $y$.
+
+The residual sum of squared errors of the model, $rss$ is:
+
+$$rss = \sum{res^2}$$
+
+$R^2$ (R-Squared), the "variance explained" by the model, is then:
+
+$$R^2 = 1-\frac{rss}{tss}$$
+
+After you calculate $R^2$, you will compare what you computed with the $R^2$ reported by [`glance()`](https://www.rdocumentation.org/packages/broom/topics/glance). `glance()` returns a one-row data frame; for a linear regression model, one of the columns returned is the $R^2$ of the model on the training data.
+
+The data frame `unemployment` is in your workspace, with the columns `predictions` and `residuals` that you calculated in a previous exercise.
+
+**Instructions**
+
+The data frame `unemployment` and the model `unemployment_model` are in the workspace.
+
+- Calculate the mean `female_unemployment` and assign it to the variable `fe_mean`.
+- Calculate the total sum of squares and assign it to the variable `tss`.
+- Calculate the residual sum of squares and assign it to the variable `rss`.
+- Calculate $R^2$. Is it a good fit ($R^2$ near 1)?
+- Use `glance()` to get $R^2$ from the model. *Is it the same as what you calculated?*
+
+```{r}
+# unemployment is in your workspace
+# summary(unemployment)
+
+# unemployment_model is in the workspace
+# summary(unemployment_model)
+
+# Calculate mean female_unemployment: fe_mean. Print it
+(fe_mean <- mean(unemployment$female_unemployment))
+
+# Calculate total sum of squares: tss. Print it
+(tss <- sum((unemployment$female_unemployment - fe_mean)^2))
+
+# Calculate residual sum of squares: rss. Print it
+(rss <- sum(unemployment$residuals^2))
+
+# Calculate R-squared: rsq. Print it. Is it a good fit?
+(rsq <- 1-(rss/tss))
+
+# Get R-squared from glance. Print it
+(rsq_glance <- broom::glance(unemployment_model)$r.squared)
+```
+
+
+### Correlation and R-squared
+
+The linear correlation of two variables, $x$ and $y$, measures the strength of the linear relationship between them. When $x$ and $y$ are respectively:
+
+- the outcomes of a regression model that minimizes squared-error (like linear regression) and
+- the true outcomes of the *training data*,
+- then the square of the correlation is the same as $R^2$. You will verify that in this exercise.
+
+**Instructions**
+
+- Use [`cor()`](https://www.rdocumentation.org/packages/stats/topics/cor) to get the correlation between the predictions and female unemployment. Assign it to the variable `rho` and print it. Make sure you use Pearson correlation (the default).
+- Square `rho` and assign it to `rho2`. Print it.
+- Compare `rho2` to $R^2$ from the model (using `glance()`). Is it the same?
+
+```{r}
+# unemployment is in your workspace
+# summary(unemployment)
+
+# unemployment_model is in the workspace
+# summary(unemployment_model)
+
+# Get the correlation between the prediction and true outcome: rho and print it
+(rho <- cor(unemployment$predictions, unemployment$female_unemployment))
+
+# Square rho: rho2 and print it
+(rho2 <- rho^2)
+
+# Get R-squared from glance and print it
+(rsq_glance <- broom::glance(unemployment_model)$r.squared)
+```
+
+
+### Generating a random test/train split
+
+For the next several exercises you will use the `mpg` data from the package `ggplot2`. The data describes the characteristics of several makes and models of cars from different years. The goal is to predict city fuel efficiency from highway fuel efficiency.
+
+In this exercise, you will split `mpg` into a training set `mpg_train` (75% of the data) and a test set `mpg_test` (25% of the data). One way to do this is to generate a column of uniform random numbers between 0 and 1, using the function [`runif()`](https://www.rdocumentation.org/packages/stats/topics/Uniform).
+
+If you have a data set dframe of size $N$, and you want a random subset of approximately size $100∗X$% of $N$ (where $X$ is between 0 and 1), then:
+
+1. Generate a vector of uniform random numbers: `gp = runif(N)`.
+2. `dframe[gp < X,]` will be about the right size.
+3. `dframe[gp >= X,]` will be the complement.
+
+**Instructions**
+
+The data frame `mpg` is in the workspace.
+
+- Use the function [`nrow`](https://www.rdocumentation.org/packages/base/topics/nrow) to get the number of rows in the data frame `mpg`. Assign this count to the variable `N` and print it.
+- Calculate about how many rows 75% of `N` should be. Assign it to the variable `target` and print it.
+- Use `runif()` to generate a vector of `N` uniform random numbers, called `gp`.
+- Use `gp` to split `mpg` into `mpg_train` and `mpg_test` (with `mpg_train` containing approximately 75% of the data).
+- Use `nrow()` to check the size of `mpg_train` and `mpg_test`. Are they about the right size?
+
+```{r}
+# mpg is in the workspace
+summary(mpg)
+dim(mpg)
+
+# Use nrow to get the number of rows in mpg (N) and print it
+(N <- nrow(mpg))
+
+# Calculate how many rows 75% of N should be and print it
+# Hint: use round() to get an integer
+(target <- round(N*.75))
+
+# Create the vector of N uniform random variables: gp
+set.seed(1)
+gp <- runif(N)
+
+# Use gp to create the training set: mpg_train (75% of data) and mpg_test (25% of data)
+mpg_train <- mpg[gp < 0.75,]
+mpg_test <- mpg[gp >= 0.75,]
+
+# Use nrow() to examine mpg_train and mpg_test
+nrow(mpg_train)
+nrow(mpg_test)
+```
+
+### Train a model using test/train split
+
+Now that you have split the `mpg` dataset into `mpg_train` and `mpg_test`, you will use `mpg_train` to train a model to predict city fuel efficiency (`cty`) from highway fuel efficiency (`hwy`).
+
+**Instructions**
+
+The data frame `mpg_train` is in the workspace.
+
+- Create a formula `fmla` that expresses the relationship `cty` as a function of `hwy`. Print it.
+- Train a model `mpg_model` on `mpg_train` to predict `cty` from `hwy` using `fmla` and `lm()`.
+- Use `summary()` to examine the model.
+
+```{r}
+# mpg_train is in the workspace
+summary(mpg_train)
+
+# Create a formula to express cty as a function of hwy: fmla and print it.
+(fmla <- as.formula("cty ~ hwy"))
+
+# Now use lm() to build a model mpg_model from mpg_train that predicts cty from hwy 
+mpg_model <- lm(fmla, mpg_train)
+```
+
+```{r, results = "asis"}
+# Use summary() to examine the model
+# summary(mpg_model)
+
+stargazer::stargazer(mpg_model, type = "html", single.row = T)
+```
+
+### Evaluate a model using test/train split
+
+Now you will test the model `mpg_model` on the test data, `mpg_test`. Functions `rmse()` and `r_squared()` to calculate RMSE and R-squared have been provided for convenience:
+
+```
+rmse(predcol, ycol)
+r_squared(predcol, ycol)
+```
+
+where:
+
+- `predcol`: The predicted values
+- `ycol`: The actual outcome
+
+You will also plot the predictions vs. the outcome.
+
+Generally, model performance is better on the training data than the test data (though sometimes the test set "gets lucky"). A slight difference in performance is okay; if the performance on training is significantly better, there is a problem.
+
+**Instructions**
+
+```{r, echo = FALSE}
+
+rmse <- function(predcol, ycol) {
+  res = predcol-ycol
+  sqrt(mean(res^2))
+}
+
+r_squared <- function(predcol, ycol) {
+  tss = sum( (ycol - mean(ycol))^2 )
+  rss = sum( (predcol - ycol)^2 )
+  1 - rss/tss
+}
+```
+
+The data frames `mpg_train` and `mpg_test`, and the model `mpg_model` are in the workspace, along with the functions `rmse()` and `r_squared()`.
+
+- Predict city fuel efficiency from `hwy` on the `mpg_train` data. Assign the predictions to the column `pred`.
+- Predict city fuel efficiency from `hwy` on the `mpg_test` data. Assign the predictions to the column `pred`.
+- Use `rmse()` to evaluate rmse for both the test and training sets. Compare. Are the performances similar?
+- Do the same with `r_squared()`. Are the performances similar?
+- Use `ggplot2` to plot the predictions against `cty` on the test data.
+
+```{r}
+# Examine the objects in the workspace
+# ls.str()
+
+# predict cty from hwy for the training set
+mpg_train$pred <- predict(mpg_model, mpg_train)
+
+# predict cty from hwy for the test set
+mpg_test$pred <- predict(mpg_model, mpg_test)
+
+# Evaluate the rmse on both training and test data and print them
+(rmse_train <- rmse(mpg_train$pred, mpg_train$cty))
+(rmse_test <- rmse(mpg_test$pred, mpg_test$cty))
+
+
+# Evaluate the r-squared on both training and test data.and print them
+(rsq_train <- r_squared(mpg_train$pred, mpg_train$cty))
+(rsq_test <- r_squared(mpg_test$pred, mpg_test$cty))
+
+# Plot the predictions (on the x-axis) against the outcome (cty) on the test data
+ggplot(mpg_test, aes(x = pred, y = cty)) + 
+  geom_point() + 
+  geom_abline()
+```
+
+### Create a cross validation plan
+
+There are several ways to implement an n-fold cross validation plan. In this exercise you will create such a plan using [`vtreat::kWayCrossValidation()`](https://www.rdocumentation.org/packages/vtreat/versions/topics/kWayCrossValidation), and examine it.
+
+`kWayCrossValidation()` creates a cross validation plan with the following call:
+
+```
+splitPlan <- kWayCrossValidation(nRows, nSplits, dframe, y)
+```
+
+where `nRows` is the number of rows of data to be split, and `nSplits` is the desired number of cross-validation folds.
+
+Strictly speaking, `dframe` and `y` aren't used by `kWayCrossValidation`; they are there for compatibility with other `vtreat` data partitioning functions. You can set them both to `NUL`L.
+
+The resulting `splitPlan` is a list of `nSplits` elements; each element contains two vectors:
+
+- `train`: the indices of `dframe` that will form the training set
+- `app`: the indices of `dframe` that will form the test (or application) set
+
+In this exercise you will create a 3-fold cross-validation plan for the data set `mpg`.
+
+**Instructions**
+
+- Load the package `vtreat`.
+- Get the number of rows in `mpg` and assign it to the variable `nRows`.
+- Call `kWayCrossValidation` to create a 3-fold cross validation plan and assign it to the variable `splitPlan`.
+- You can set the last two arguments of the function to `NULL`.
+- Call `str()` to examine the structure of `splitPlan`.
+
+```{r}
+# Load the package vtreat
+library(vtreat)
+
+# mpg is in the workspace
+# summary(mpg)
+
+# Get the number of rows in mpg
+nRows <- nrow(mpg)
+
+# Implement the 3-fold cross-fold plan with vtreat
+splitPlan <- kWayCrossValidation(nRows, 3, dframe = NULL, y = NULL)
+
+# Examine the split plan
+str(splitPlan)
+```
+
+### Evaluate a modeling procedure using n-fold cross-validation
+
+In this exercise you will use `splitPlan`, the 3-fold cross validation plan from the previous exercise, to make predictions from a model that predicts `mpg$cty` from `mpg$hwy`.
+
+If `dframe` is the training data, then one way to add a column of cross-validation predictions to the frame is as follows:
+
+```
+# Initialize a column of the appropriate length
+dframe$pred.cv <- 0 
+
+# k is the number of folds
+# splitPlan is the cross validation plan
+
+for(i in 1:k) {
+  # Get the ith split
+  split <- splitPlan[[i]]
+
+  # Build a model on the training data 
+  # from this split 
+  # (lm, in this case)
+  model <- lm(fmla, data = dframe[split$train,])
+
+  # make predictions on the 
+  # application data from this split
+  dframe$pred.cv[split$app] <- predict(model, newdata = dframe[split$app,])
+}
+```
+
+Cross-validation predicts how well a model built from all the data will perform on new data. As with the test/train split, for a good modeling procedure, cross-validation performance and training performance should be close.
+
+**Instructions**
+
+The data frame mpg, the cross validation plan splitPlan, and the function to calculate RMSE (rmse()) from one of the previous exercises is available in your workspace.
+
+- Run the 3-fold cross validation plan from `splitPlan` and put the predictions in the column `mpg$pred.cv`.
+  - Use `lm()` and the formula `cty ~ hwy`.
+- Create a linear regression model on all the `mpg` data (formula `cty ~ hwy`) and assign the predictions to `mpg$pred`.
+- Use `rmse()` to get the root mean squared error of the predictions from the full model (`mpg$pred`). *Recall that `rmse()` takes two arguments, the predicted values, and the actual outcome.*
+- Get the root mean squared error of the cross-validation predictions. Are the two values about the same?
+
+```{r}
+# mpg is in the workspace
+# summary(mpg)
+
+# splitPlan is in the workspace
+# str(splitPlan)
+
+# Run the 3-fold cross validation plan from splitPlan
+k <- 3 # Number of folds
+mpg$pred.cv <- 0 
+for(i in 1:k) {
+  split <- splitPlan[[i]]
+  model <- lm(cty ~ hwy, data = mpg[split$train,])
+  mpg$pred.cv[split$app] <- predict(model, newdata = mpg[split$app,])
+}
+
+# Predict from a full model
+mpg$pred <- predict(lm(cty ~ hwy, data = mpg))
+
+# Get the rmse of the full model's predictions
+rmse(mpg$pred, mpg$cty)
+
+# Get the rmse of the cross-validation predictions
+rmse(mpg$pred.cv, mpg$cty)
+```
+
+
+## Issues to Consider
+
+## Dealing with Non-Linear Responses
+
+## Tree-Based Methods
 
 # Unsupervised Learning
 
