@@ -5,7 +5,6 @@ output:
   html_document:
     code_folding: hide
     fig_caption: yes
-    number_sections: yes
     toc: yes
     toc_collapse: no
     toc_float: yes
@@ -429,10 +428,14 @@ table(donors$donated)
 # Build the donation model
 donation_model <- glm(donated ~ bad_address + interest_religion + interest_veterans, 
                       data = donors, family = "binomial")
-
-# Summarize the model results
-summary(donation_model)
 ```
+```{r, results = "asis"}
+# Summarize the model results
+# summary(donation_model)
+
+stargazer::stargazer(donation_model, type = "html", single.row = T)
+```
+
 
 ### Making a binary prediction
 
@@ -606,7 +609,7 @@ In this exercise, you will use a forward stepwise approach to add predictors to 
 - Create a vector of predicted probabilities using the `predict()` function.
 - Plot the ROC curve with `roc()` and `plot()` and compute the AUC of the stepwise model with `auc()`.
 
-```{r}
+```{r, warning = F, message = F}
 # Specify a null model with no predictors
 null_model <- glm(formula = donated ~ 1, data = donors, family = "binomial")
 
@@ -614,7 +617,7 @@ null_model <- glm(formula = donated ~ 1, data = donors, family = "binomial")
 full_model <- glm(formula = donated ~ ., data = donors, family = "binomial")
 
 # Use a forward stepwise algorithm to build a parsimonious model
-step_model <- step(null_model, scope = list(lower = null_model, upper = full_model), direction = "forward")
+step_model <- step(null_model, scope = list(lower = null_model, upper = full_model), direction = "forward", trace = F)
 
 # Estimate the stepwise donation probability
 step_prob <- predict(step_model, type = "response")
@@ -1553,8 +1556,178 @@ rmse(mpg$pred, mpg$cty)
 rmse(mpg$pred.cv, mpg$cty)
 ```
 
-
 ## Issues to Consider
+
+### Examining the structure of categorical inputs
+
+For this exercise you will call [`model.matrix()`](https://www.rdocumentation.org/packages/stats/topics/model.matrix) to examine how R represents data with both categorical and numerical inputs for modeling. The dataset `flowers` (derived from the `Sleuth3` package) is loaded into your workspace. It has the following columns:
+
+- `Flowers`: the average number of flowers on a meadowfoam plant
+- `Intensity`: the intensity of a light treatment applied to the plant
+- `Time`: A categorical variable - when (Late or Early) in the lifecycle the light treatment occurred
+
+The ultimate goal is to predict `Flowers` as a function of `Time` and `Intensity`.
+
+**Instructions**
+
+```{r, echo = FALSE}
+flowers <- read.csv("Data/2Regression/flowers.csv")
+```
+
+
+The data frame `flowers` is in your workspace.
+
+- Call the [`str()`](https://www.rdocumentation.org/packages/utils/topics/str) function on `flowers` to see the types of each column.
+- Use the [`unique()`](https://www.rdocumentation.org/packages/base/topics/unique) function on the column `flowers$Time` to see the possible values that `Time` takes. How many unique values are there?
+- Create a formula to express `Flowers` as a function of `Intensity` and `Time`. Assign it to the variable `fmla` and print it.
+- Use `fmla` and m`odel.matrix()` to create the model matrix for the data frame `flowers`. Assign it to the variable `mmat`.
+- Use [`head()`](https://www.rdocumentation.org/packages/utils/topics/head) to examine the first 20 lines of `flowers`.
+- Now examine the first 20 lines of `mmat`.
+    - Is the numeric column `Intensity` different?
+    - What happened to the categorical column `Time` from `flowers`?
+    - How is `Time == 'Early'` represented? And `Time = 'Late'`?
+    
+```{r}
+# Call str on flowers to see the types of each column
+str(flowers)
+
+# Use unique() to see how many possible values Time takes
+unique(flowers$Time)
+
+# Build a formula to express Flowers as a function of Intensity and Time: fmla. Print it
+(fmla <- as.formula("Flowers ~ Intensity + Time"))
+
+# Use fmla and model.matrix to see how the data is represented for modeling
+mmat <- model.matrix(fmla, flowers)
+
+# Examine the first 20 lines of flowers
+head(flowers, 20)
+
+# Examine the first 20 lines of mmat
+head(mmat, 20)
+```
+  
+### Modeling with categorical inputs
+
+For this exercise you will fit a linear model to the `flowers` data, to predict `Flowers` as a function of `Time` and `Intensity`.
+
+The model formula `fmla` that you created in the previous exercise is still in your workspace, as is the model matrix `mmat`.
+
+**Instructions**
+
+- Use `fmla` and `lm` to train a linear model that predicts `Flowers` from `Intensity` and `Time`. Assign the model to the variable `flower_model`.
+- Use `summary()` to remind yourself of the structure of `mmat`.
+- Use `summary()` to examine the `flower_model`. Do the variables match what you saw in `mmat`?
+- Use `flower_model` to predict the number of `flowers`. Add the predictions to `flowers` as the column `predictions`.
+- Fill in the blanks to plot predictions vs. actual flowers (predictions on the x-axis).
+
+```{r}
+# flowers in is the workspace
+# str(flowers)
+
+# fmla is in the workspace
+# fmla
+
+# Fit a model to predict Flowers from Intensity and Time : flower_model
+flower_model <- lm(fmla, flowers)
+
+# Use summary on mmat to remind yourself of its structure
+# summary(mmat)
+
+```
+
+```{r, results = "asis"}
+
+# Use summary to examine flower_model 
+# summary(flower_model)
+
+stargazer::stargazer(flower_model, type = "html", single.row = T)
+
+```
+
+```{r}
+
+# Predict the number of flowers on each plant
+flowers$predictions <- predict(flower_model)
+
+# Plot predictions vs actual flowers (predictions on x-axis)
+ggplot(flowers, aes(x = predictions, y = Flowers)) + 
+  geom_point() +
+  geom_abline(color = "blue") 
+```
+
+
+### Modeling an interaction
+
+In this exercise you will use interactions to model the effect of gender and gastric activity on alcohol metabolism.
+
+The data frame `alcohol` has columns:
+
+- `Metabol`: the alcohol metabolism rate
+- `Gastric`: the rate of gastric alcohol dehydrogenase activity
+- `Sex`: the sex of the drinker (Male or Female)
+
+In the video, we fit three models to the alcohol data:
+
+- one with only additive (main effect) terms : `Metabol ~ Gastric + Sex`
+- two models, each with interactions between gastric activity and sex
+
+We saw that one of the models with interaction terms had a better R-squared than the additive model, suggesting that using interaction terms gives a better fit. In this exercise we will compare the R-squared of one of the interaction models to the main-effects-only model.
+
+Recall that the operator ` `designates the interaction between two variables. The operator `*` designates the interaction between the two variables, plus the main effects.
+
+```
+x*y = x + y + x:y
+```
+
+**Instructions**
+
+```{r}
+alcohol <- read.csv("Data/2Regression/alcohol.csv")
+```
+
+The data frame `alcohol` is in your workspace.
+
+- Write a formula that expresses `Metabol` as a function of `Gastric` and `Sex` with no interactions.
+- Assign the formula to the variable `fmla_add` and print it.
+- Write a formula that expresses `Metabol` as a function of the interaction between `Gastric` and `Sex`.
+    - Add `Gastric` as a main effect, but not Sex.
+    - Assign the formula to the variable `fmla_interaction` and print it.
+- Fit a linear model with only main effects: `model_add` to the data.
+- Fit a linear model with the interaction: `model_interaction` to the data.
+- Call `summary()` on both models. Which has a better R-squared?
+
+```{r}
+# alcohol is in the workspace
+# summary(alcohol)
+
+# Create the formula with main effects only
+(fmla_add <- as.formula("Metabol ~ Gastric + Sex"))
+
+# Create the formula with interactions
+(fmla_interaction <- as.formula("Metabol ~ Gastric + Gastric : Sex"))
+
+# Fit the main effects only model
+model_add <- lm(fmla_add, alcohol)
+
+# Fit the interaction model
+model_interaction <- lm(fmla_interaction, alcohol)
+```
+
+```{r, results = "asis"}
+# Call summary on both models and compare
+# summary(model_add)
+# summary(model_interaction)
+
+stargazer::stargazer(model_add, model_interaction, type = "html", single.row = T)
+```
+
+
+
+
+
+
+
 
 ## Dealing with Non-Linear Responses
 
