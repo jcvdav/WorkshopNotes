@@ -10,6 +10,10 @@ output:
     toc_float: yes
 ---
 
+# 2018
+
+- January 17, [Data visualization with `ggplot2`](./DataVis/) by Allison Horst @ Eco-Data Science (5/5)
+
 # 2017
 
 - December, [Machine Learning with R](./SLR/) by [DataCamp](https://www.datacamp.com/tracks/machine-learning) (5/5)

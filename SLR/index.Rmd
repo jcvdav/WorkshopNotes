@@ -1723,7 +1723,7 @@ stargazer::stargazer(model_add, model_interaction, type = "html", single.row = T
 ```
 
 
-
+**https://campus.datacamp.com/courses/supervised-learning-in-r-regression/issues-to-consider?ex=6**
 
 
 
