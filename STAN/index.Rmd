@@ -1,0 +1,446 @@
+---
+title: "STAN"
+author: "Juan Carlos Villaseñor-Derbez"
+date: "19 de enero de 2018"
+output:
+  html_document:
+    code_folding: hide
+    fig_caption: yes
+    toc: yes
+    toc_collapse: no
+    toc_float: yes
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+# Intro to writing it
+
+## Basic blocks
+
+```
+/*
+
+Comments go here
+  
+*/
+
+data{// data goes here}
+
+parameters{
+// parameters go here
+}
+
+model{
+// model explaining the relationship between parameters and data goes here
+}
+```
+
+
+## Creating a vector
+
+```
+data{
+
+int N; // Number of observations
+
+vector[N] Y; // Creates a column vector witn N values of Y
+}
+
+```
+
+## Declare arrays
+
+```
+data{
+
+int N; 
+
+vector[N] Y; //Vector
+
+real X[N]; //Array
+
+}
+```
+
+## This wouldnt work
+
+```
+
+data{
+vector[10] X;
+
+vector[10] Y;
+
+vector[10] Z;
+
+Z = X * Y:
+}
+
+```
+
+
+## But this would
+
+Vectorize matrix multiplication just like MATLAB
+
+```
+data{
+vector[10] X;
+
+vector[10] Y;
+
+vector[10] Z;
+
+Z = X .* Y:
+}
+
+```
+
+## Specify bounds to a vector
+
+```
+data{
+
+int n;
+
+vector<lower = 10>[n] X; //Defines a vector whose values have to be above 0
+}
+```
+
+
+This feature is useful when we define parameters:
+
+```
+parameters{
+
+real <lower = 10> sigma;
+
+}
+```
+
+And use it in a model
+
+```
+
+model{
+
+sigma ~ normal(0, 2);
+
+}
+
+```
+
+# Hands on
+
+## Load packages and set up instructions
+
+```{r}
+suppressPackageStartupMessages({
+  library(rstan)
+  library(tidyverse)
+})
+
+rstan_options(auto_write = TRUE)
+```
+
+
+```{r}
+
+beta <- 0.2
+
+sigma <- 0.5
+
+x <- -1:200
+
+data <- list(
+  y = x*beta + rnorm(length(x), 0, sigma),
+  n = length(x),
+  x = x
+)
+
+plot(data$y~data$x)
+
+scratch <- stan(file = here::here('STAN/scripts', 'scratch2.stan'),
+                iter = 20000,
+                warmup = 10000,
+                data = data)
+
+plot(scratch)
+
+```
+
+# FItting a Stock Recruitment relationship
+
+## Write your model!
+
+A general BH model looks like this:
+
+$$ R = \frac{\alpha{SSB}}{1 + \beta{SSB}}$$
+
+The problem here is that $\beta$ is obviously very specific to each species, making it difficult to really say much about the resilience of a species based on that parameter. To that end @Mace1988 provided a reparameterization of thd BH equation using a term called "steepness" (h), which is more or less the slope of the stock-recruitment when SSB is 20% of max (i.e. unfished) SSB. This allows for species with vastly different stock sizes to be compared in terms of their steepness, with species with higher values of steepness being more resilient to fishing than those with lower steepness
+
+$$ R = \frac{0.8(\alpha){(h){{SSB}}}}{0.2 (\alpha)(1 - h) + (h - 0.2)SSB}$$
+
+```{r}
+sal_data <- read_csv(here::here("./STAN/data","rlsadb_v4.25_ssb_recruits.csv")) %>% 
+  set_names(tolower) %>% 
+  filter(stockid == 'PSALMAKPSWUD') %>% 
+  select(stocklong, year, ssb, r) %>% 
+  na.omit() # STAN DOESNT LIKE NAs
+
+sal_data %>% 
+  ggplot(aes(ssb, r)) + 
+  geom_point()
+```
+
+
+Let's start by writing out the model for this model. We have three parameters we need to estimate, steepness h, maximum recruitment $\alpha$, and some error term $\sigma$.
+
+We can write this as
+
+$$[\alpha,h,\sigma | r] \propto [ r | \alpha,h,\sigma][\alpha][h][\sigma] $$
+
+Where r are our recruitment data. That's just a conceptual framework for the model; we can write it more clearly by specifying the model in terms of distributions.
+
+$$[\alpha,h,\sigma | r] \propto normal( log(r) | bh(h,\alpha),\sigma) * unif(h|0.2,1) * normal(\alpha|10max(r),0.1max(r)) * cauchy(\sigma|0,5)$$
+
+In english, this says that we believe that recruitment is a log-normal process, while specifying appropriate priors for our other parameters. E.g. we know that h has to be between 0.2 and 1, and it's reasonable to think that max recruitment is someting larger than the largest recruitment ever observed (much more care needs to be taken in prior construction, this is just an example)
+
+Easiest way to think about the log normal distribution is a normal distribution with a cv instead of a sigma . So, you can just calculate the cv for your data and that should be sigma in log space.
+
+```{r}
+ssb <- sal_data$ssb
+
+r <- sal_data$r
+
+max_r <- max(r)
+
+warmups <- 1000
+
+total_iterations <- 2000
+
+max_treedepth <-  10
+
+n_chains <-  4
+
+n_cores <- 1
+
+data <- list(
+  n = length(ssb),
+  ssb = ssb,
+  r = r,
+  max_r = max_r)
+
+plot(r ~ ssb)
+
+bh_model <- stan(file = here::here('STAN/scripts', 'bh_model2.stan'),
+                 data = data,
+                 chains = n_chains,
+                 warmup = warmups,
+                 iter = total_iterations,
+                 cores = n_cores,
+                 refresh = 250,
+                 init = list(list(h = 0.4, alpha = 2 * data$max_r),
+                             list(h = 0.21, alpha = 3 * data$max_r),
+                             list(h = 0.8, alpha = 1 * data$max_r),
+                             list(h = 0.3, alpha = .8 * data$max_r)),
+                 control = list(max_treedepth = max_treedepth,
+                                adapt_delta = 0.95))
+
+plot(bh_model)
+
+```
+
+```{r, eval = F}
+rstanarm::launch_shinystan(bh_model)
+```
+
+```{r}
+summary(bh_model)
+```
+
+## Check for divergences
+
+```{r}
+rstan::check_divergences(bh_model)
+```
+
+## Check percentage of divergence per chain
+
+```{r}
+mack_diagnostics <- rstan::get_sampler_params(bh_model) %>% 
+  set_names(1:n_chains) %>% 
+   map_df(as_data_frame,.id = 'chain') %>% 
+  group_by(chain) %>% 
+  mutate(iteration = 1:length(chain)) %>% 
+  mutate(warmup = iteration <= warmups)
+ 
+
+mack_diagnostics %>% 
+  group_by(warmup, chain) %>% 
+  summarise(percent_divergent = mean(divergent__ >0)) %>% 
+  ggplot() +
+  geom_col(aes(chain, percent_divergent, fill = warmup), position = 'dodge', color = 'black') + 
+  scale_y_continuous(labels = scales::percent) +
+  theme_classic()
+```
+
+## Check tree depth
+
+```{r}
+mack_diagnostics %>% 
+  ggplot(aes(iteration, treedepth__, color = chain)) + 
+  geom_line() + 
+  geom_hline(aes(yintercept = max_treedepth), color = 'red') +
+  theme_classic()
+```
+
+
+
+## Check stepsize
+
+```{r}
+mack_diagnostics %>% 
+  ggplot(aes(iteration, stepsize__, color = chain)) + 
+  geom_line() +
+  theme_classic()
+```
+
+
+## Parameter diagnostics
+
+These are found in  `summary(model)$summary`
+
+```{r}
+bh_summary <- summary(bh_model)$summary %>% 
+  as.data.frame() %>% 
+  mutate(variable = rownames(.)) %>% 
+  select(variable, everything()) %>% 
+  as_data_frame()
+```
+
+
+## Eff
+
+```{r}
+bh_summary %>% 
+  ggplot(aes(n_eff)) + 
+  geom_histogram() + 
+  geom_vline(aes(xintercept = 4000), color = 'red') +
+  theme_classic()
+```
+
+## $\hat{R}$
+
+```{r}
+bh_summary %>% 
+  ggplot(aes(Rhat)) + 
+  geom_histogram() + 
+  geom_vline(aes(xintercept = 4000), color = 'red') +
+  theme_classic()
+```
+
+## Values for each parameter we estimated
+
+```{r}
+bh_summary %>% 
+  filter(variable %in% c('h','alpha','sigma')) %>% 
+  ggplot() + 
+  geom_linerange(aes(variable, ymin = `2.5%`,ymax = `97.5%`)) + 
+  geom_crossbar(aes(variable, mean, ymin = `25%`, ymax = `75%`), fill= 'grey') + 
+  facet_wrap(~variable, scales = 'free')
+```
+
+
+# Looking at the actual fit
+
+## Adding a line to the plot
+
+```{r}
+rhat <- bh_summary %>% 
+  filter(str_detect(variable,'rhat') & !str_detect(variable,'log') & !str_detect(variable,'pp'))
+
+sal_data <- sal_data %>% 
+  mutate(mean_rhat = rhat$mean,
+         lower = rhat$`2.5%`,
+         upper = rhat$`97.5%`)
+
+sal_data %>% 
+  ggplot() + 
+  geom_point(aes(ssb, r)) + 
+  geom_line(aes(ssb, mean_rhat)) + 
+  geom_ribbon(aes(ssb, ymin = lower, ymax = upper), alpha = 0.25) +
+  theme_classic()
+```
+
+## Fitted vs predicted
+
+```{r}
+sal_data %>% 
+  ggplot() + 
+  geom_point(aes(mean_rhat, r)) + 
+  theme_classic() +
+  geom_abline()
+```
+
+
+```{r}
+bh_mcmc <- bh_model %>% 
+  rstan::extract()
+
+bh_pars <- bh_mcmc[ c('h','alpha','sigma')] %>% 
+  map_df(as_data_frame, .id = 'variable')
+
+bh_pars %>% 
+  ggplot(aes(value, fill = variable)) + 
+  geom_density() + 
+  facet_wrap(~variable, scales = 'free') + 
+  coord_flip() +
+  theme_classic()
+```
+
+# Posterior Predictive Analysis
+
+```{r}
+pp_rhat <- bh_mcmc[ 'pp_rhat'] %>% 
+  map_df(as_data_frame, .id = 'variable') %>% 
+  gather(observation,value, -variable)
+
+ggplot() + 
+  geom_density(data = pp_rhat, aes(log(value),fill = 'Posterior Predictive'), alpha = 0.5) + 
+  geom_density(data = sal_data, aes(log(r), fill = 'Observed'), alpha = 0.5) +
+  theme_classic()
+```
+
+```{r}
+rhat <- bh_summary %>% 
+  filter(str_detect(variable,'rhat') & !str_detect(variable,'log') & !str_detect(variable,'pp'))
+
+pp_rhat <- bh_summary %>% 
+  filter(str_detect(variable,'pp_rhat')) %>% 
+  mutate(ssb = sal_data$ssb)
+
+
+sal_data <- sal_data %>% 
+  mutate(mean_rhat = rhat$mean,
+         lower = rhat$`2.5%`,
+         upper = rhat$`97.5%`)
+
+sal_data %>% 
+  ggplot() + 
+  geom_point(aes(ssb, r)) + 
+  geom_line(aes(ssb, mean_rhat)) + 
+  geom_ribbon(aes(ssb, ymin = lower, ymax = upper), alpha = 0.25) + 
+  geom_line(data = pp_rhat, aes(ssb, mean), color = 'red') +
+  geom_ribbon(data = pp_rhat, aes(ssb, ymin = `2.5%`, ymax = `97.5%`), alpha = 0.25, fill = 'red') +
+  theme_classic()
+```
+
+
+
