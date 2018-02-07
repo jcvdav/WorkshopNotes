@@ -12,6 +12,10 @@ output:
 
 # 2018
 
+- Feb 2 - 3, [`Rstudio::conf(2018L)`](./Rstudio2018/) at `Rstudio::conf(2018L)`
+
+- January 31 - Feb 1, [BigData in R](https://rawgit.com/jcvdav/bigdataclass2018/master/assets/workbook/_book/index.html) by [Edgar Ruiz](https://github.com/edgararuiz) at `Rstudio::conf(2018L)`
+
 - January 19, [STAN](./STAN/) by Dan Ovando (5/5)
 
 - January 17, [Data visualization with `ggplot2`](./DataVis/) by Allison Horst @ Eco-Data Science (5/5)

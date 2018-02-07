@@ -1,0 +1,163 @@
+---
+title: "Rstudio::conf(2018L)"
+author: "Juan Carlos Villaseñor-Derbez"
+date: "Jan 31 - Feb 4 2018"
+output:
+  html_document:
+    code_folding: show
+    fig_caption: yes
+    toc: yes
+    toc_collapse: no
+    toc_float: yes
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r}
+knitr::opts_chunk$set(eval = FALSE)
+```
+
+
+## `tibbletime`
+
+- `collapse_by` to copy or re-write time up. useful for then calculating `group_by` and `summarize`
+- `rollify` is an adverb used to modify existing functions. `rollify(~mean(), window = 5)` calculates a 5-period running mean
+- 
+
+## [`infer`](https://github.com/andrewpbray/infer)
+
+- Allen Downey
+
+```{r}
+data %>%
+  specify() %>% #Define the model relation
+  hypothesize() %>% # Specify null hypotheses
+  generate() %>% # Create permutations of data
+  calculate() %>%  # Calculate statistic
+  visualize() # Get a plot of the distribution
+```
+
+## Tidy predictive modelling
+
+- `broom`
+- `tidyposterior`
+  - Empirical validation
+- `resample`
+- `recipies`
+- `yardstick`
+
+## `tidyeval`
+
+- Names of columns in the `aes` argument of a `ggplot` are "quoted", whereas the `data` argument is "evaluated"
+- The `aes` uses non-standard evaluation
+- `expr()` captures the expression that you give
+
+```{r}
+rlang::expr(a + b)
+```
+
+```{r}
+(x1 <- rlang::expr(x + y))
+
+(x2 <- rlang::expr(!!x1 + z))
+
+(x3 <- rlang::expr(1 / !!x1))
+```
+
+```{r}
+my_fun <- function(x, var){
+  var <- enquo(var)
+  
+  y <- group_by(x, cyl) %>% 
+    summarize(mean = mean(!!var, na.rm = T))
+  
+  return(y)
+}
+```
+
+```{r}
+my_fun(mtcars, disp)
+```
+
+
+## New operator in `zeallot`
+
+`%<-%` Can be used to create n variables simultaneously. The syntax is `c(name1, name2, ..., namen) %<-% object`
+
+The number of columns or vectors or numbers in `object` need to match `n`
+
+```{r}
+library(zeallot)
+c(var1, var2) %<-% mtcars[, c(1, 4)]
+
+var1
+var2
+```
+
+
+
+ ## TensorFlow talk
+
+- Packages:
+  - `greta`:
+    - simple and scalable statistical modelling in R
+    - https://greta-dev.github.io/greta/
+  - `tfruns`
+  - [`keras`](https://t.co/BneOQfMe1V)
+  - `tensorflow`
+  - `cloudml`
+  - `tfdeploy`
+- Deep Learning with R (book)
+- Deep Learning (book)
+- https://tensorflow.rstudio.com/learn/gallery.html
+
+## Google cloud stuff
+
+- `dbplyr`
+- `kerasjs`: export a keras model as javascript and embed it on an html document
+- 
+
+## Lesser know stars of the `tidyverse`
+
+- `tibble::as_tibble`
+- `tibble::tribble`
+- `dplyr::na_if`
+- `dplyr::select_if`
+- `skimr::skim`
+- `stringr::str_split`
+- `tidyr::unnest`
+- `forcats::fct_reorder`
+- `forcats::fct_relevel`
+- `reprex::reprex`
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
